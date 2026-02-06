@@ -4,7 +4,7 @@ An interactive **Streamlit dashboard** that explores and models hospital readmis
 
 This project demonstrates the **end-to-end data science pipeline**, including data cleaning, exploratory data analysis (EDA), feature engineering, modeling, and evaluation in a healthcare context.
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](PASTE_YOUR_STREAMLIT_APP_LINK_HERE)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://diabetes-readmission-dashboard-template.streamlit.app/)
 
 ---
 
@@ -58,7 +58,3 @@ The project includes:
 2. **Run the Streamlit app**
    ```bash
    streamlit run streamlit_app.py
-
-
-   
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://gdp-dashboard-template.streamlit.app/)
