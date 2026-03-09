@@ -426,7 +426,7 @@ with tab3:
     )
 
     if "latest_model_input" not in st.session_state:
-        st.info("Run a prediction in the Prediction tab first to generate SHAP explanations.")
+        st.info("Run a prediction in the Prediction tab to generate SHAP explanations.")
     else:
         latest_model_input = st.session_state["latest_model_input"]
         latest_pred_class = st.session_state["latest_pred_class"]
