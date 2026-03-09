@@ -112,6 +112,12 @@ st.caption(
 
 st.divider()
 
+tab1, tab2, tab3 = st.tabs([
+    "EDA Dashboard",
+    "Prediction",
+    "Model Interpretability"
+])
+
 # -----------------------------------------------------------------------------
 # Sidebar filters
 
