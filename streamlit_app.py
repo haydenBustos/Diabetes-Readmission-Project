@@ -170,237 +170,240 @@ if "readmitted" in filtered.columns:
         filtered = filtered[filtered["readmitted"] == 0]
 
 # -----------------------------------------------------------------------------
-# Quick metrics
+# Tab 1: EDA Dashboard
 
-left, mid, right, far_right = st.columns(4)
+with tab1:
+    left, mid, right, far_right = st.columns(4)
 
-total = len(filtered)
-readmit_rate = (filtered["readmitted"].mean() * 100) if total and "readmitted" in filtered.columns else 0.0
-avg_los = filtered["time_in_hospital"].mean() if total and "time_in_hospital" in filtered.columns else float("nan")
-avg_meds = filtered["num_medications"].mean() if total and "num_medications" in filtered.columns else float("nan")
+    total = len(filtered)
+    readmit_rate = (filtered["readmitted"].mean() * 100) if total and "readmitted" in filtered.columns else 0.0
+    avg_los = filtered["time_in_hospital"].mean() if total and "time_in_hospital" in filtered.columns else float("nan")
+    avg_meds = filtered["num_medications"].mean() if total and "num_medications" in filtered.columns else float("nan")
 
-left.metric("Encounters (filtered)", f"{total:,}")
-mid.metric("Readmission rate", f"{readmit_rate:.1f}%")
-right.metric("Avg length of stay (days)", f"{avg_los:.2f}" if pd.notna(avg_los) else "n/a")
-far_right.metric("Avg # medications", f"{avg_meds:.2f}" if pd.notna(avg_meds) else "n/a")
+    left.metric("Encounters (filtered)", f"{total:,}")
+    mid.metric("Readmission rate", f"{readmit_rate:.1f}%")
+    right.metric("Avg length of stay (days)", f"{avg_los:.2f}" if pd.notna(avg_los) else "n/a")
+    far_right.metric("Avg # medications", f"{avg_meds:.2f}" if pd.notna(avg_meds) else "n/a")
 
-st.divider()
+    st.divider()
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.subheader("Readmission rate by age band")
+        if total and "age" in filtered.columns and "readmitted" in filtered.columns:
+            tmp = filtered.copy()
+            tmp["age_band"] = tmp["age"].apply(age_to_band_label)
+            age_rate = (
+                tmp.groupby("age_band", as_index=False)["readmitted"]
+                .mean()
+                .sort_values("age_band")
+            )
+            age_rate["readmit_rate"] = age_rate["readmitted"] * 100
+            st.bar_chart(age_rate, x="age_band", y="readmit_rate")
+        else:
+            st.info("Not enough data after filtering to plot age readmission rates.")
+
+    with c2:
+        st.subheader("Readmission rate by race")
+        if total and "race" in filtered.columns and "readmitted" in filtered.columns:
+            race_rate = (
+                filtered.groupby("race", as_index=False)["readmitted"]
+                .mean()
+                .sort_values("readmitted", ascending=False)
+            )
+            race_rate["readmit_rate"] = race_rate["readmitted"] * 100
+            st.bar_chart(race_rate, x="race", y="readmit_rate")
+        else:
+            st.info("Not enough data after filtering to plot race readmission rates.")
+
+    st.divider()
+
+    c3, c4 = st.columns(2)
+
+    with c3:
+        st.subheader("Readmission rate by gender")
+        if total and "gender" in filtered.columns and "readmitted" in filtered.columns:
+            gender_rate = (
+                filtered.groupby("gender", as_index=False)["readmitted"]
+                .mean()
+                .sort_values("gender")
+            )
+            gender_rate["readmit_rate"] = gender_rate["readmitted"] * 100
+            st.bar_chart(gender_rate, x="gender", y="readmit_rate")
+        else:
+            st.info("Not enough data after filtering to plot gender readmission rates.")
+
+    with c4:
+        st.subheader("Top medical specialties (count)")
+        if total and "medical_specialty" in filtered.columns:
+            spec_counts = (
+                filtered["medical_specialty"]
+                .value_counts()
+                .head(10)
+                .rename_axis("medical_specialty")
+                .reset_index(name="count")
+            )
+            st.bar_chart(spec_counts, x="medical_specialty", y="count")
+        else:
+            st.info("Not enough data after filtering to show medical specialties.")
+
+    st.divider()
+
+    with st.expander("Preview filtered data (first 50 rows)"):
+        st.dataframe(filtered.head(50), use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# Charts
+# Tab 2: Prediction
 
-c1, c2 = st.columns(2)
-
-with c1:
-    st.subheader("Readmission rate by age band")
-    if total and "age" in filtered.columns and "readmitted" in filtered.columns:
-        tmp = filtered.copy()
-        tmp["age_band"] = tmp["age"].apply(age_to_band_label)
-        age_rate = (
-            tmp.groupby("age_band", as_index=False)["readmitted"]
-            .mean()
-            .sort_values("age_band")
-        )
-        age_rate["readmit_rate"] = age_rate["readmitted"] * 100
-        st.bar_chart(age_rate, x="age_band", y="readmit_rate")
-    else:
-        st.info("Not enough data after filtering to plot age readmission rates.")
-
-with c2:
-    st.subheader("Readmission rate by race")
-    if total and "race" in filtered.columns and "readmitted" in filtered.columns:
-        race_rate = (
-            filtered.groupby("race", as_index=False)["readmitted"]
-            .mean()
-            .sort_values("readmitted", ascending=False)
-        )
-        race_rate["readmit_rate"] = race_rate["readmitted"] * 100
-        st.bar_chart(race_rate, x="race", y="readmit_rate")
-    else:
-        st.info("Not enough data after filtering to plot race readmission rates.")
-
-st.divider()
-
-c3, c4 = st.columns(2)
-
-with c3:
-    st.subheader("Readmission rate by gender")
-    if total and "gender" in filtered.columns and "readmitted" in filtered.columns:
-        gender_rate = (
-            filtered.groupby("gender", as_index=False)["readmitted"]
-            .mean()
-            .sort_values("gender")
-        )
-        gender_rate["readmit_rate"] = gender_rate["readmitted"] * 100
-        st.bar_chart(gender_rate, x="gender", y="readmit_rate")
-    else:
-        st.info("Not enough data after filtering to plot gender readmission rates.")
-
-with c4:
-    st.subheader("Top medical specialties (count)")
-    if total and "medical_specialty" in filtered.columns:
-        spec_counts = (
-            filtered["medical_specialty"]
-            .value_counts()
-            .head(10)
-            .rename_axis("medical_specialty")
-            .reset_index(name="count")
-        )
-        st.bar_chart(spec_counts, x="medical_specialty", y="count")
-    else:
-        st.info("Not enough data after filtering to show medical specialties.")
-
-st.divider()
-
-# -----------------------------------------------------------------------------
-# Prediction section
-# Uses a real encounter row from the filtered dataset so the model receives
-# the full feature set it was trained on.
-
-st.header("Patient Readmission Prediction")
-st.caption(
-    "Select an encounter from the filtered dataset, optionally adjust a few fields, "
-    "and generate a readmission prediction with the trained LightGBM model."
-)
-
-if filtered.empty:
-    st.warning("No rows available after filtering. Adjust the sidebar filters to make predictions.")
-else:
-    prediction_source = filtered.reset_index(drop=False).rename(columns={"index": "original_index"})
-
-    selector_cols = ["original_index"]
-    for col in ["age", "race", "gender", "medical_specialty", "time_in_hospital"]:
-        if col in prediction_source.columns:
-            selector_cols.append(col)
-
-    st.subheader("Choose an encounter")
-    selected_position = st.selectbox(
-        "Encounter row",
-        options=prediction_source.index.tolist(),
-        format_func=lambda i: (
-            f"Row {prediction_source.loc[i, 'original_index']} | "
-            f"Age: {prediction_source.loc[i, 'age'] if 'age' in prediction_source.columns else 'n/a'} | "
-            f"Race: {prediction_source.loc[i, 'race'] if 'race' in prediction_source.columns else 'n/a'} | "
-            f"Gender: {prediction_source.loc[i, 'gender'] if 'gender' in prediction_source.columns else 'n/a'}"
-        ),
+with tab2:
+    st.header("Patient Readmission Prediction")
+    st.caption(
+        "Select an encounter from the filtered dataset, optionally adjust a few fields, "
+        "and generate a readmission prediction with the trained LightGBM model."
     )
 
-    base_row = prediction_source.loc[[selected_position]].copy()
+    if filtered.empty:
+        st.warning("No rows available after filtering. Adjust the sidebar filters to make predictions.")
+    else:
+        prediction_source = filtered.reset_index(drop=False).rename(columns={"index": "original_index"})
 
-    display_cols = [c for c in selector_cols if c in base_row.columns]
-    with st.expander("Preview selected encounter"):
-        st.dataframe(base_row[display_cols], use_container_width=True)
+        selector_cols = ["original_index"]
+        for col in ["age", "race", "gender", "medical_specialty", "time_in_hospital"]:
+            if col in prediction_source.columns:
+                selector_cols.append(col)
 
-    st.subheader("Optional adjustments")
-    editable_row = base_row.drop(columns=["readmitted"], errors="ignore").copy()
-
-    with st.form("prediction_form"):
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            if "age" in editable_row.columns:
-                editable_row.at[editable_row.index[0], "age"] = st.selectbox(
-                    "Age",
-                    options=sorted(df["age"].dropna().unique().tolist()),
-                    index=sorted(df["age"].dropna().unique().tolist()).index(editable_row.iloc[0]["age"])
-                    if editable_row.iloc[0]["age"] in sorted(df["age"].dropna().unique().tolist())
-                    else 0,
-                )
-            if "race" in editable_row.columns:
-                race_options = sorted(df["race"].dropna().astype(str).unique().tolist())
-                editable_row.at[editable_row.index[0], "race"] = st.selectbox(
-                    "Race",
-                    options=race_options,
-                    index=race_options.index(str(editable_row.iloc[0]["race"]))
-                    if str(editable_row.iloc[0]["race"]) in race_options
-                    else 0,
-                )
-            if "gender" in editable_row.columns:
-                gender_options = sorted(df["gender"].dropna().astype(str).unique().tolist())
-                editable_row.at[editable_row.index[0], "gender"] = st.selectbox(
-                    "Gender",
-                    options=gender_options,
-                    index=gender_options.index(str(editable_row.iloc[0]["gender"]))
-                    if str(editable_row.iloc[0]["gender"]) in gender_options
-                    else 0,
-                )
-
-        with col2:
-            if "time_in_hospital" in editable_row.columns:
-                editable_row.at[editable_row.index[0], "time_in_hospital"] = st.number_input(
-                    "Time in hospital",
-                    min_value=1,
-                    max_value=30,
-                    value=int(editable_row.iloc[0]["time_in_hospital"]) if pd.notna(editable_row.iloc[0]["time_in_hospital"]) else 1,
-                )
-            if "num_medications" in editable_row.columns:
-                editable_row.at[editable_row.index[0], "num_medications"] = st.number_input(
-                    "Number of medications",
-                    min_value=0,
-                    max_value=100,
-                    value=int(editable_row.iloc[0]["num_medications"]) if pd.notna(editable_row.iloc[0]["num_medications"]) else 0,
-                )
-            if "num_lab_procedures" in editable_row.columns:
-                editable_row.at[editable_row.index[0], "num_lab_procedures"] = st.number_input(
-                    "Number of lab procedures",
-                    min_value=0,
-                    max_value=150,
-                    value=int(editable_row.iloc[0]["num_lab_procedures"]) if pd.notna(editable_row.iloc[0]["num_lab_procedures"]) else 0,
-                )
-
-        with col3:
-            if "payer_code" in editable_row.columns:
-                payer_options = sorted(df["payer_code"].fillna("Unknown").astype(str).unique().tolist())
-                editable_row.at[editable_row.index[0], "payer_code"] = st.selectbox(
-                    "Payer code",
-                    options=payer_options,
-                    index=payer_options.index(str(editable_row.iloc[0]["payer_code"]))
-                    if str(editable_row.iloc[0]["payer_code"]) in payer_options
-                    else 0,
-                )
-            if "medical_specialty" in editable_row.columns:
-                specialty_options = sorted(df["medical_specialty"].fillna("Unknown").astype(str).unique().tolist())
-                editable_row.at[editable_row.index[0], "medical_specialty"] = st.selectbox(
-                    "Medical specialty",
-                    options=specialty_options,
-                    index=specialty_options.index(str(editable_row.iloc[0]["medical_specialty"]))
-                    if str(editable_row.iloc[0]["medical_specialty"]) in specialty_options
-                    else 0,
-                )
-            if "diag_1" in editable_row.columns:
-                diag1_options = sorted(df["diag_1"].fillna("Unknown").astype(str).unique().tolist())
-                editable_row.at[editable_row.index[0], "diag_1"] = st.selectbox(
-                    "Primary diagnosis",
-                    options=diag1_options,
-                    index=diag1_options.index(str(editable_row.iloc[0]["diag_1"]))
-                    if str(editable_row.iloc[0]["diag_1"]) in diag1_options
-                    else 0,
-                )
-
-        submitted = st.form_submit_button("Predict readmission risk")
-
-    if submitted:
-        model_input = prepare_model_input(editable_row, model_features)
-
-        pred_class = int(model.predict(model_input)[0])
-        pred_proba = float(model.predict_proba(model_input)[0][1])
-
-        result_left, result_mid = st.columns(2)
-        result_left.metric("Predicted readmission probability", f"{pred_proba:.1%}")
-        result_mid.metric("Predicted class", "Readmitted" if pred_class == 1 else "Not readmitted")
-
-        st.caption(
-            "This prediction is generated from the trained LightGBM model using the selected encounter as a base profile. "
-            "It is for demonstration only and not for clinical use."
+        st.subheader("Choose an encounter")
+        selected_position = st.selectbox(
+            "Encounter row",
+            options=prediction_source.index.tolist(),
+            format_func=lambda i: (
+                f"Row {prediction_source.loc[i, 'original_index']} | "
+                f"Age: {prediction_source.loc[i, 'age'] if 'age' in prediction_source.columns else 'n/a'} | "
+                f"Race: {prediction_source.loc[i, 'race'] if 'race' in prediction_source.columns else 'n/a'} | "
+                f"Gender: {prediction_source.loc[i, 'gender'] if 'gender' in prediction_source.columns else 'n/a'}"
+            ),
         )
 
-        with st.expander("Preview model-ready input row"):
-            st.dataframe(model_input, use_container_width=True)
+        base_row = prediction_source.loc[[selected_position]].copy()
 
-st.divider()
+        display_cols = [c for c in selector_cols if c in base_row.columns]
+        with st.expander("Preview selected encounter"):
+            st.dataframe(base_row[display_cols], use_container_width=True)
+
+        st.subheader("Optional adjustments")
+        editable_row = base_row.drop(columns=["readmitted"], errors="ignore").copy()
+
+        with st.form("prediction_form"):
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                if "age" in editable_row.columns:
+                    age_options = sorted(df["age"].dropna().unique().tolist())
+                    editable_row.at[editable_row.index[0], "age"] = st.selectbox(
+                        "Age",
+                        options=age_options,
+                        index=age_options.index(editable_row.iloc[0]["age"])
+                        if editable_row.iloc[0]["age"] in age_options
+                        else 0,
+                    )
+                if "race" in editable_row.columns:
+                    race_options = sorted(df["race"].dropna().astype(str).unique().tolist())
+                    editable_row.at[editable_row.index[0], "race"] = st.selectbox(
+                        "Race",
+                        options=race_options,
+                        index=race_options.index(str(editable_row.iloc[0]["race"]))
+                        if str(editable_row.iloc[0]["race"]) in race_options
+                        else 0,
+                    )
+                if "gender" in editable_row.columns:
+                    gender_options = sorted(df["gender"].dropna().astype(str).unique().tolist())
+                    editable_row.at[editable_row.index[0], "gender"] = st.selectbox(
+                        "Gender",
+                        options=gender_options,
+                        index=gender_options.index(str(editable_row.iloc[0]["gender"]))
+                        if str(editable_row.iloc[0]["gender"]) in gender_options
+                        else 0,
+                    )
+
+            with col2:
+                if "time_in_hospital" in editable_row.columns:
+                    editable_row.at[editable_row.index[0], "time_in_hospital"] = st.number_input(
+                        "Time in hospital",
+                        min_value=1,
+                        max_value=30,
+                        value=int(editable_row.iloc[0]["time_in_hospital"]) if pd.notna(editable_row.iloc[0]["time_in_hospital"]) else 1,
+                    )
+                if "num_medications" in editable_row.columns:
+                    editable_row.at[editable_row.index[0], "num_medications"] = st.number_input(
+                        "Number of medications",
+                        min_value=0,
+                        max_value=100,
+                        value=int(editable_row.iloc[0]["num_medications"]) if pd.notna(editable_row.iloc[0]["num_medications"]) else 0,
+                    )
+                if "num_lab_procedures" in editable_row.columns:
+                    editable_row.at[editable_row.index[0], "num_lab_procedures"] = st.number_input(
+                        "Number of lab procedures",
+                        min_value=0,
+                        max_value=150,
+                        value=int(editable_row.iloc[0]["num_lab_procedures"]) if pd.notna(editable_row.iloc[0]["num_lab_procedures"]) else 0,
+                    )
+
+            with col3:
+                if "payer_code" in editable_row.columns:
+                    payer_options = sorted(df["payer_code"].fillna("Unknown").astype(str).unique().tolist())
+                    editable_row.at[editable_row.index[0], "payer_code"] = st.selectbox(
+                        "Payer code",
+                        options=payer_options,
+                        index=payer_options.index(str(editable_row.iloc[0]["payer_code"]))
+                        if str(editable_row.iloc[0]["payer_code"]) in payer_options
+                        else 0,
+                    )
+                if "medical_specialty" in editable_row.columns:
+                    specialty_options = sorted(df["medical_specialty"].fillna("Unknown").astype(str).unique().tolist())
+                    editable_row.at[editable_row.index[0], "medical_specialty"] = st.selectbox(
+                        "Medical specialty",
+                        options=specialty_options,
+                        index=specialty_options.index(str(editable_row.iloc[0]["medical_specialty"]))
+                        if str(editable_row.iloc[0]["medical_specialty"]) in specialty_options
+                        else 0,
+                    )
+                if "diag_1" in editable_row.columns:
+                    diag1_options = sorted(df["diag_1"].fillna("Unknown").astype(str).unique().tolist())
+                    editable_row.at[editable_row.index[0], "diag_1"] = st.selectbox(
+                        "Primary diagnosis",
+                        options=diag1_options,
+                        index=diag1_options.index(str(editable_row.iloc[0]["diag_1"]))
+                        if str(editable_row.iloc[0]["diag_1"]) in diag1_options
+                        else 0,
+                    )
+
+            submitted = st.form_submit_button("Predict readmission risk")
+
+        if submitted:
+            model_input = prepare_model_input(editable_row, model_features)
+
+            pred_class = int(model.predict(model_input)[0])
+            pred_proba = float(model.predict_proba(model_input)[0][1])
+
+            result_left, result_mid = st.columns(2)
+            result_left.metric("Predicted readmission probability", f"{pred_proba:.1%}")
+            result_mid.metric("Predicted class", "Readmitted" if pred_class == 1 else "Not readmitted")
+
+            st.caption(
+                "This prediction is generated from the trained LightGBM model using the selected encounter as a base profile. "
+                "It is for demonstration only and not for clinical use."
+            )
+
+            with st.expander("Preview model-ready input row"):
+                st.dataframe(model_input, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# Optional: preview filtered data
+# Tab 3: Model Interpretability
 
-with st.expander("Preview filtered data (first 50 rows)"):
-    st.dataframe(filtered.head(50), use_container_width=True)
+with tab3:
+    st.header("Model Interpretability")
+    st.info("SHAP explanations will appear here in the next version.")
+
+
+
