@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 import joblib
+import shap
+import matplotlib.pyplot as plt
 
 # -----------------------------------------------------------------------------
 # Page config
@@ -58,9 +60,15 @@ def load_model_features():
     return joblib.load(ARTIFACTS_DIR / "model_features.joblib")
 
 
+@st.cache_resource(show_spinner="Preparing SHAP explainer...")
+def load_shap_explainer(_model):
+    return shap.TreeExplainer(_model)
+
+
 df = get_diabetes_data()
 model = load_model()
 model_features = load_model_features()
+shap_explainer = load_shap_explainer(model)
 
 # -----------------------------------------------------------------------------
 # Helpers
@@ -108,6 +116,10 @@ st.title("🏥 Diabetes Hospital Readmission Dashboard")
 st.caption(
     "Exploratory demographics + readmission rates using the UCI Diabetes 130-US Hospitals dataset (1999–2008). "
     "For educational/portfolio use only — not clinical decision-making."
+)
+
+st.warning(
+    "This tool is for educational demonstration only and should not be used for clinical decision-making."
 )
 
 st.divider()
@@ -386,6 +398,11 @@ with tab2:
             pred_class = int(model.predict(model_input)[0])
             pred_proba = float(model.predict_proba(model_input)[0][1])
 
+            st.session_state["latest_model_input"] = model_input.copy()
+            st.session_state["latest_pred_class"] = pred_class
+            st.session_state["latest_pred_proba"] = pred_proba
+            st.session_state["latest_editable_row"] = editable_row.copy()
+
             result_left, result_mid = st.columns(2)
             result_left.metric("Predicted readmission probability", f"{pred_proba:.1%}")
             result_mid.metric("Predicted class", "Readmitted" if pred_class == 1 else "Not readmitted")
@@ -403,7 +420,83 @@ with tab2:
 
 with tab3:
     st.header("Model Interpretability")
-    st.info("SHAP explanations will appear here in the next version.")
+    st.caption(
+        "SHAP shows which features pushed the prediction higher or lower for the current patient profile. "
+        "These are model explanations, not proof of clinical causation."
+    )
 
+    if "latest_model_input" not in st.session_state:
+        st.info("Run a prediction in the Prediction tab first to generate SHAP explanations.")
+    else:
+        latest_model_input = st.session_state["latest_model_input"]
+        latest_pred_class = st.session_state["latest_pred_class"]
+        latest_pred_proba = st.session_state["latest_pred_proba"]
 
+        st.subheader("Latest prediction summary")
+        col_a, col_b = st.columns(2)
+        col_a.metric("Predicted readmission probability", f"{latest_pred_proba:.1%}")
+        col_b.metric("Predicted class", "Readmitted" if latest_pred_class == 1 else "Not readmitted")
 
+        st.subheader("Local explanation for this prediction")
+
+        shap_values_single = shap_explainer.shap_values(latest_model_input)
+
+        if isinstance(shap_values_single, list):
+            single_vals = shap_values_single[1][0]
+            base_value = shap_explainer.expected_value[1]
+        else:
+            single_vals = shap_values_single[0]
+            base_value = shap_explainer.expected_value
+
+        local_shap_df = pd.DataFrame({
+            "feature": latest_model_input.columns,
+            "shap_value": single_vals
+        })
+        local_shap_df["abs_shap_value"] = local_shap_df["shap_value"].abs()
+        local_shap_df = local_shap_df.sort_values("abs_shap_value", ascending=False).head(15)
+
+        st.write("Top features influencing this prediction")
+        st.bar_chart(local_shap_df.set_index("feature")["shap_value"])
+
+        with st.expander("Preview top SHAP drivers table"):
+            st.dataframe(local_shap_df, use_container_width=True)
+
+        st.write("Detailed SHAP waterfall plot")
+        explanation = shap.Explanation(
+            values=single_vals,
+            base_values=base_value,
+            data=latest_model_input.iloc[0].values,
+            feature_names=latest_model_input.columns.tolist()
+        )
+
+        plt.close("all")
+        shap.plots.waterfall(explanation, max_display=12, show=False)
+        fig_local = plt.gcf()
+        st.pyplot(fig_local, clear_figure=True)
+
+        st.subheader("Global feature importance (filtered sample)")
+
+        if filtered.empty:
+            st.info("No filtered data available to calculate global SHAP importance.")
+        else:
+            global_source = filtered.drop(columns=["readmitted"], errors="ignore").copy()
+            sample_size = min(200, len(global_source))
+            global_sample = global_source.sample(sample_size, random_state=42)
+
+            global_model_input = prepare_model_input(global_sample, model_features)
+            shap_values_global = shap_explainer.shap_values(global_model_input)
+
+            if isinstance(shap_values_global, list):
+                global_vals = shap_values_global[1]
+            else:
+                global_vals = shap_values_global
+
+            global_importance = pd.DataFrame({
+                "feature": global_model_input.columns,
+                "mean_abs_shap": abs(global_vals).mean(axis=0)
+            }).sort_values("mean_abs_shap", ascending=False).head(15)
+
+            st.bar_chart(global_importance.set_index("feature")["mean_abs_shap"])
+
+            with st.expander("Preview global SHAP importance table"):
+                st.dataframe(global_importance, use_container_width=True)
