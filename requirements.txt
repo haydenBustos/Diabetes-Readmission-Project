@@ -4,3 +4,5 @@ lightgbm
 scikit-learn
 imbalanced-learn
 joblib
+shap
+matplotlib
