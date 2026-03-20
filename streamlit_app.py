@@ -118,9 +118,6 @@ st.caption(
     "For educational/portfolio use only — not clinical decision-making."
 )
 
-st.warning(
-    "This tool is for educational demonstration only and should not be used for clinical decision-making."
-)
 
 st.divider()
 
