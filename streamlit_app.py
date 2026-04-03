@@ -326,7 +326,7 @@ with tab1:
             age_rate["readmit_rate"] = age_rate["readmitted"] * 100
             st.bar_chart(age_rate, x="age_band", y="readmit_rate")
         else:
-            st.info("Not enough data after filtering to plot age readmission rates.")
+            st.info("You have removed all groups. Add groups for visuals.")
 
     with c2:
         st.subheader("Readmission rate by race")
@@ -339,7 +339,7 @@ with tab1:
             race_rate["readmit_rate"] = race_rate["readmitted"] * 100
             st.bar_chart(race_rate, x="race", y="readmit_rate")
         else:
-            st.info("Not enough data after filtering to plot race readmission rates.")
+            st.info("You have removed all groups. Add groups for visuals.")
 
     st.divider()
 
@@ -385,8 +385,8 @@ with tab1:
 with tab2:
     st.header("Patient Readmission Prediction")
     st.caption(
-        "Select an encounter from the filtered dataset, optionally adjust a few fields, "
-        "and generate a readmission prediction with the trained LightGBM model."
+        "Select an encounter from the filtered dataset, optionally adjust fields, and"
+        "generate a readmission prediction with the trained LightGBM model."
     )
 
     if filtered.empty:
@@ -577,25 +577,6 @@ with tab2:
                 subgroup_performance["payer"]
             )
 
-            st.info(
-                "Interpretation tip: higher recall means the model was better at correctly identifying readmitted patients "
-                "within that subgroup. Lower recall or very small subgroup support suggests the prediction should be interpreted "
-                "more cautiously."
-            )
-
-            with st.expander("Why this transparency section matters"):
-                st.write(
-                    """
-                    This model was designed with a strong focus on identifying likely readmissions.
-                    Because performance can vary across subgroups, this section shows subgroup-level recall
-                    so users can better understand whether the model has historically been more or less sensitive
-                    for patients with similar characteristics.
-                    """
-                )
-
-            with st.expander("Preview model-ready input row"):
-                st.dataframe(model_input, use_container_width=True)
-
 # -----------------------------------------------------------------------------
 # Tab 3: Model Interpretability
 
@@ -603,22 +584,21 @@ with tab3:
     st.header("Model Interpretability")
     st.caption(
         "SHAP shows which features pushed the prediction higher or lower for the current patient profile. "
-        "These are model explanations, not proof of clinical causation."
     )
 
     if "latest_model_input" not in st.session_state:
-        st.info("Run a prediction in the Prediction tab to generate SHAP explanations.")
+        st.info("Run a prediction in the Prediction tab to generate SHAP plots.")
     else:
         latest_model_input = st.session_state["latest_model_input"]
         latest_pred_class = st.session_state["latest_pred_class"]
         latest_pred_proba = st.session_state["latest_pred_proba"]
 
-        st.subheader("Latest prediction summary")
+        st.subheader("Last prediction summary")
         col_a, col_b = st.columns(2)
         col_a.metric("Predicted readmission probability", f"{latest_pred_proba:.1%}")
         col_b.metric("Predicted class", "Readmitted" if latest_pred_class == 1 else "Not readmitted")
 
-        st.subheader("Detailed SHAP waterfall plot")
+        st.subheader("SHAP Waterfall Plot")
         shap_values_single = shap_explainer.shap_values(latest_model_input)
 
         if isinstance(shap_values_single, list):
