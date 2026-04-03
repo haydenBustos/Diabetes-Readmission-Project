@@ -185,7 +185,7 @@ def render_subgroup_metric(container, title: str, subgroup_value, subgroup_dict:
 
         container.metric(title, f"{recall:.2f}")
         container.caption(label)
-        container.caption(f"Support: {support:,} | Accuracy: {accuracy:.2f}")
+        container.caption(f"Support: {support:}")
     else:
         container.metric(title, "n/a")
         container.caption("No subgroup analysis available")
