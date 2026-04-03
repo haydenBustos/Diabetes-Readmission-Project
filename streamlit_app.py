@@ -25,25 +25,17 @@ ARTIFACTS_DIR = BASE_DIR / "artifacts"
 
 @st.cache_data(show_spinner="Loading dataset...")
 def get_diabetes_data() -> pd.DataFrame:
-    """
-    Load the diabetes deployment dataset from the repo.
-    Expected path:
-      data/diabetes_deployment.csv
-    """
     data_filename = DATA_DIR / "diabetes_deployment.csv"
     df = pd.read_csv(data_filename)
 
-    # Light cleanup for consistent filtering / display
     for col in ["race", "gender", "payer_code", "medical_specialty", "diag_1", "diag_2", "diag_3"]:
         if col in df.columns:
             df[col] = df[col].fillna("Unknown").astype(str)
 
-    # Ensure numeric columns are numeric
     for col in ["age", "time_in_hospital", "num_medications", "num_lab_procedures"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # Ensure readmitted is 0/1
     if "readmitted" in df.columns:
         df["readmitted"] = pd.to_numeric(df["readmitted"], errors="coerce").fillna(0).astype(int)
 
@@ -71,13 +63,52 @@ model_features = load_model_features()
 shap_explainer = load_shap_explainer(model)
 
 # -----------------------------------------------------------------------------
+# Subgroup performance metadata
+
+subgroup_performance = {
+    "race": {
+        "AfricanAmerican": {"recall_1": 0.60, "support": 1572, "accuracy": 0.64},
+        "Asian": {"recall_1": 0.67, "support": 62, "accuracy": 0.77},
+        "Caucasian": {"recall_1": 0.65, "support": 5547, "accuracy": 0.63},
+        "Hispanic": {"recall_1": 0.62, "support": 152, "accuracy": 0.64},
+        "Other": {"recall_1": 0.42, "support": 97, "accuracy": 0.67},
+    },
+    "age": {
+        5: {"recall_1": 0.00, "support": 12, "accuracy": 0.67},
+        15: {"recall_1": 0.33, "support": 71, "accuracy": 0.65},
+        25: {"recall_1": 0.73, "support": 133, "accuracy": 0.77},
+        35: {"recall_1": 0.51, "support": 309, "accuracy": 0.67},
+        45: {"recall_1": 0.50, "support": 783, "accuracy": 0.64},
+        55: {"recall_1": 0.53, "support": 1304, "accuracy": 0.64},
+        65: {"recall_1": 0.65, "support": 1683, "accuracy": 0.62},
+        75: {"recall_1": 0.68, "support": 1898, "accuracy": 0.62},
+        85: {"recall_1": 0.73, "support": 1237, "accuracy": 0.63},
+    },
+    "payer": {
+        "MISSING": {"recall_1": 0.61, "support": 3275, "accuracy": 0.63},
+        "BC": {"recall_1": 0.48, "support": 322, "accuracy": 0.66},
+        "CH": {"recall_1": 0.25, "support": 14, "accuracy": 0.64},
+        "CM": {"recall_1": 0.65, "support": 129, "accuracy": 0.57},
+        "CP": {"recall_1": 0.55, "support": 193, "accuracy": 0.65},
+        "DM": {"recall_1": 0.58, "support": 43, "accuracy": 0.65},
+        "HM": {"recall_1": 0.60, "support": 432, "accuracy": 0.64},
+        "MC": {"recall_1": 0.71, "support": 2061, "accuracy": 0.62},
+        "MD": {"recall_1": 0.64, "support": 226, "accuracy": 0.62},
+        "MP": {"recall_1": 0.80, "support": 6, "accuracy": 0.67},
+        "OG": {"recall_1": 0.55, "support": 73, "accuracy": 0.73},
+        "OT": {"recall_1": 0.67, "support": 4, "accuracy": 0.50},
+        "PO": {"recall_1": 0.39, "support": 52, "accuracy": 0.71},
+        "SI": {"recall_1": 0.67, "support": 5, "accuracy": 0.60},
+        "SP": {"recall_1": 0.65, "support": 388, "accuracy": 0.63},
+        "UN": {"recall_1": 0.51, "support": 191, "accuracy": 0.75},
+        "WC": {"recall_1": 0.00, "support": 16, "accuracy": 0.69},
+    }
+}
+
+# -----------------------------------------------------------------------------
 # Helpers
 
 def age_to_band_label(age_midpoint: float) -> str:
-    """
-    In the UCI dataset, age is often bucketed into 10-year bands.
-    Midpoints like 5, 15, 25, ... 95 are displayed as 0–10, 10–20, ..., 90–100.
-    """
     if pd.isna(age_midpoint):
         return "Unknown"
     a = int(round(age_midpoint))
@@ -87,12 +118,6 @@ def age_to_band_label(age_midpoint: float) -> str:
 
 
 def prepare_model_input(input_df: pd.DataFrame, feature_order: list[str]) -> pd.DataFrame:
-    """
-    Apply the same basic preprocessing pattern used during training:
-    - fill string NA values
-    - pd.get_dummies()
-    - align columns to saved training feature order
-    """
     df_copy = input_df.copy()
 
     for col in ["race", "gender", "payer_code", "medical_specialty", "diag_1", "diag_2", "diag_3"]:
@@ -105,8 +130,100 @@ def prepare_model_input(input_df: pd.DataFrame, feature_order: list[str]) -> pd.
 
     encoded = pd.get_dummies(df_copy)
     encoded = encoded.reindex(columns=feature_order, fill_value=0)
-
     return encoded
+
+
+def normalize_payer_code(payer_value: str) -> str:
+    if payer_value in ["Unknown", "UNKNOWN", "nan", "None", ""]:
+        return "MISSING"
+    return payer_value
+
+
+def get_reliability_label(recall: float, support: int) -> str:
+    if support < 30:
+        return "⚠️ Very limited reliability"
+    elif support < 100:
+        return "⚠️ Lower reliability"
+    elif recall >= 0.65:
+        return "✅ Higher reliability"
+    elif recall >= 0.55:
+        return "🟡 Moderate reliability"
+    else:
+        return "❗ Lower reliability"
+
+
+def reliability_score(recall: float, support: int) -> float:
+    """
+    Penalize tiny subgroup sizes so very small samples do not look overly trustworthy.
+    Output is a 0-1 score.
+    """
+    if support < 30:
+        penalty = 0.55
+    elif support < 100:
+        penalty = 0.75
+    else:
+        penalty = 1.0
+    return recall * penalty
+
+
+def score_to_trust_label(score: float) -> tuple[str, str]:
+    if score >= 0.65:
+        return "High", "✅"
+    elif score >= 0.50:
+        return "Medium", "🟡"
+    else:
+        return "Low", "❗"
+
+
+def render_subgroup_metric(container, title: str, subgroup_value, subgroup_dict: dict):
+    if subgroup_value in subgroup_dict:
+        data = subgroup_dict[subgroup_value]
+        recall = data["recall_1"]
+        support = data["support"]
+        accuracy = data["accuracy"]
+        label = get_reliability_label(recall, support)
+
+        container.metric(title, f"{recall:.2f}")
+        container.caption(label)
+        container.caption(f"Support: {support:,} | Accuracy: {accuracy:.2f}")
+    else:
+        container.metric(title, "n/a")
+        container.caption("No subgroup analysis available")
+
+
+def build_trust_gauge_html(score: float, label: str, icon: str) -> str:
+    score_pct = max(0, min(100, int(round(score * 100))))
+
+    if label == "High":
+        active_color = "#4CAF50"
+    elif label == "Medium":
+        active_color = "#F4B400"
+    else:
+        active_color = "#DB4437"
+
+    return f"""
+    <div style="background:#F8FAFC; padding:1rem 1.25rem; border-radius:12px; border:1px solid #E5E7EB;">
+        <div style="font-size:1.05rem; font-weight:600; margin-bottom:0.5rem;">
+            Overall subgroup trust gauge
+        </div>
+        <div style="font-size:2rem; font-weight:700; margin-bottom:0.35rem;">
+            {icon} {label} Trust
+        </div>
+        <div style="font-size:0.95rem; color:#374151; margin-bottom:0.75rem;">
+            Composite subgroup reliability score: {score_pct} / 100
+        </div>
+        <div style="display:flex; width:100%; height:16px; border-radius:999px; overflow:hidden; background:#E5E7EB; margin-bottom:0.6rem;">
+            <div style="width:33.33%; background:{active_color if label == 'Low' else '#DB4437'};"></div>
+            <div style="width:33.33%; background:{active_color if label == 'Medium' else '#F4B400'};"></div>
+            <div style="width:33.34%; background:{active_color if label == 'High' else '#4CAF50'};"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:0.85rem; color:#4B5563;">
+            <span>Low</span>
+            <span>Medium</span>
+            <span>High</span>
+        </div>
+    </div>
+    """
 
 
 # -----------------------------------------------------------------------------
@@ -114,10 +231,8 @@ def prepare_model_input(input_df: pd.DataFrame, feature_order: list[str]) -> pd.
 
 st.title("🏥 Diabetes Hospital Readmission Dashboard")
 st.caption(
-    "Exploratory demographics + readmission rates using the UCI Diabetes 130-US Hospitals dataset (1999–2008). "
-    "For educational/portfolio use only — not clinical decision-making."
+    "Exploratory demographics + readmission rates using the UCI Diabetes 130-US Hospitals dataset (1999–2008)."
 )
-
 
 st.divider()
 
@@ -228,34 +343,36 @@ with tab1:
 
     st.divider()
 
-    c3, c4 = st.columns(2)
+    st.subheader("Global feature importance (filtered sample)")
+    st.caption(
+        "Mean absolute SHAP values from the currently filtered patient sample. "
+        "Higher values indicate features that had greater overall influence on model predictions."
+    )
 
-    with c3:
-        st.subheader("Readmission rate by gender")
-        if total and "gender" in filtered.columns and "readmitted" in filtered.columns:
-            gender_rate = (
-                filtered.groupby("gender", as_index=False)["readmitted"]
-                .mean()
-                .sort_values("gender")
-            )
-            gender_rate["readmit_rate"] = gender_rate["readmitted"] * 100
-            st.bar_chart(gender_rate, x="gender", y="readmit_rate")
-        else:
-            st.info("Not enough data after filtering to plot gender readmission rates.")
+    if filtered.empty:
+        st.info("No filtered data available to calculate global SHAP importance.")
+    else:
+        global_source = filtered.drop(columns=["readmitted"], errors="ignore").copy()
+        sample_size = min(200, len(global_source))
+        global_sample = global_source.sample(sample_size, random_state=42)
 
-    with c4:
-        st.subheader("Top medical specialties (count)")
-        if total and "medical_specialty" in filtered.columns:
-            spec_counts = (
-                filtered["medical_specialty"]
-                .value_counts()
-                .head(10)
-                .rename_axis("medical_specialty")
-                .reset_index(name="count")
-            )
-            st.bar_chart(spec_counts, x="medical_specialty", y="count")
+        global_model_input = prepare_model_input(global_sample, model_features)
+        shap_values_global = shap_explainer.shap_values(global_model_input)
+
+        if isinstance(shap_values_global, list):
+            global_vals = shap_values_global[1]
         else:
-            st.info("Not enough data after filtering to show medical specialties.")
+            global_vals = shap_values_global
+
+        global_importance = pd.DataFrame({
+            "feature": global_model_input.columns,
+            "mean_abs_shap": abs(global_vals).mean(axis=0)
+        }).sort_values("mean_abs_shap", ascending=False).head(15)
+
+        st.bar_chart(global_importance.set_index("feature")["mean_abs_shap"])
+
+        with st.expander("Preview global SHAP importance table"):
+            st.dataframe(global_importance, use_container_width=True)
 
     st.divider()
 
@@ -404,10 +521,77 @@ with tab2:
             result_left.metric("Predicted readmission probability", f"{pred_proba:.1%}")
             result_mid.metric("Predicted class", "Readmitted" if pred_class == 1 else "Not readmitted")
 
-            st.caption(
-                "This prediction is generated from the trained LightGBM model using the selected encounter as a base profile. "
-                "It is for demonstration only and not for clinical use."
+            st.divider()
+            st.subheader("Prediction Reliability Across Similar Patient Subgroups")
+
+            patient_race = str(editable_row.iloc[0].get("race", "Unknown"))
+            patient_age = editable_row.iloc[0].get("age", None)
+            patient_payer = normalize_payer_code(str(editable_row.iloc[0].get("payer_code", "Unknown")))
+
+            if pd.notna(patient_age):
+                patient_age = int(patient_age)
+
+            subgroup_scores = []
+
+            if patient_race in subgroup_performance["race"]:
+                race_data = subgroup_performance["race"][patient_race]
+                subgroup_scores.append(reliability_score(race_data["recall_1"], race_data["support"]))
+
+            if patient_age in subgroup_performance["age"]:
+                age_data = subgroup_performance["age"][patient_age]
+                subgroup_scores.append(reliability_score(age_data["recall_1"], age_data["support"]))
+
+            if patient_payer in subgroup_performance["payer"]:
+                payer_data = subgroup_performance["payer"][patient_payer]
+                subgroup_scores.append(reliability_score(payer_data["recall_1"], payer_data["support"]))
+
+            if subgroup_scores:
+                overall_trust_score = sum(subgroup_scores) / len(subgroup_scores)
+                trust_label, trust_icon = score_to_trust_label(overall_trust_score)
+                st.markdown(build_trust_gauge_html(overall_trust_score, trust_label, trust_icon), unsafe_allow_html=True)
+            else:
+                st.info("No subgroup trust information is available for this patient profile.")
+
+            st.write("")
+
+            rel1, rel2, rel3 = st.columns(3)
+
+            render_subgroup_metric(
+                rel1,
+                "Race subgroup recall",
+                patient_race,
+                subgroup_performance["race"]
             )
+
+            render_subgroup_metric(
+                rel2,
+                "Age subgroup recall",
+                patient_age,
+                subgroup_performance["age"]
+            )
+
+            render_subgroup_metric(
+                rel3,
+                "Payer subgroup recall",
+                patient_payer,
+                subgroup_performance["payer"]
+            )
+
+            st.info(
+                "Interpretation tip: higher recall means the model was better at correctly identifying readmitted patients "
+                "within that subgroup. Lower recall or very small subgroup support suggests the prediction should be interpreted "
+                "more cautiously."
+            )
+
+            with st.expander("Why this transparency section matters"):
+                st.write(
+                    """
+                    This model was designed with a strong focus on identifying likely readmissions.
+                    Because performance can vary across subgroups, this section shows subgroup-level recall
+                    so users can better understand whether the model has historically been more or less sensitive
+                    for patients with similar characteristics.
+                    """
+                )
 
             with st.expander("Preview model-ready input row"):
                 st.dataframe(model_input, use_container_width=True)
@@ -434,8 +618,7 @@ with tab3:
         col_a.metric("Predicted readmission probability", f"{latest_pred_proba:.1%}")
         col_b.metric("Predicted class", "Readmitted" if latest_pred_class == 1 else "Not readmitted")
 
-        st.subheader("Local explanation for this prediction")
-
+        st.subheader("Detailed SHAP waterfall plot")
         shap_values_single = shap_explainer.shap_values(latest_model_input)
 
         if isinstance(shap_values_single, list):
@@ -445,20 +628,6 @@ with tab3:
             single_vals = shap_values_single[0]
             base_value = shap_explainer.expected_value
 
-        local_shap_df = pd.DataFrame({
-            "feature": latest_model_input.columns,
-            "shap_value": single_vals
-        })
-        local_shap_df["abs_shap_value"] = local_shap_df["shap_value"].abs()
-        local_shap_df = local_shap_df.sort_values("abs_shap_value", ascending=False).head(15)
-
-        st.write("Top features influencing this prediction")
-        st.bar_chart(local_shap_df.set_index("feature")["shap_value"])
-
-        with st.expander("Preview top SHAP drivers table"):
-            st.dataframe(local_shap_df, use_container_width=True)
-
-        st.write("Detailed SHAP waterfall plot")
         explanation = shap.Explanation(
             values=single_vals,
             base_values=base_value,
@@ -471,29 +640,11 @@ with tab3:
         fig_local = plt.gcf()
         st.pyplot(fig_local, clear_figure=True)
 
-        st.subheader("Global feature importance (filtered sample)")
-
-        if filtered.empty:
-            st.info("No filtered data available to calculate global SHAP importance.")
-        else:
-            global_source = filtered.drop(columns=["readmitted"], errors="ignore").copy()
-            sample_size = min(200, len(global_source))
-            global_sample = global_source.sample(sample_size, random_state=42)
-
-            global_model_input = prepare_model_input(global_sample, model_features)
-            shap_values_global = shap_explainer.shap_values(global_model_input)
-
-            if isinstance(shap_values_global, list):
-                global_vals = shap_values_global[1]
-            else:
-                global_vals = shap_values_global
-
-            global_importance = pd.DataFrame({
-                "feature": global_model_input.columns,
-                "mean_abs_shap": abs(global_vals).mean(axis=0)
-            }).sort_values("mean_abs_shap", ascending=False).head(15)
-
-            st.bar_chart(global_importance.set_index("feature")["mean_abs_shap"])
-
-            with st.expander("Preview global SHAP importance table"):
-                st.dataframe(global_importance, use_container_width=True)
+        with st.expander("Preview SHAP values table"):
+            local_shap_df = pd.DataFrame({
+                "feature": latest_model_input.columns,
+                "shap_value": single_vals
+            })
+            local_shap_df["abs_shap_value"] = local_shap_df["shap_value"].abs()
+            local_shap_df = local_shap_df.sort_values("abs_shap_value", ascending=False).head(15)
+            st.dataframe(local_shap_df, use_container_width=True)
