@@ -31,7 +31,7 @@ This project uses the **Diabetes 130-US hospitals for years 1999–2008** datase
 
 ---
 
-## Modeling Approach
+## Modeling Overview
 
 The project includes:
 - Data preprocessing and cleaning
