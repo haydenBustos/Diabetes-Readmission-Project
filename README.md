@@ -1,4 +1,4 @@
-# 🔬 Diabetes Hospital Readmission Prediction Dashboard
+# Diabetes Hospital Readmission Prediction Dashboard
 
 An interactive **Streamlit dashboard** that explores a model that classifies hospital readmission risk for patients with diabetes using the **Diabetes 130-US Hospitals (1999–2008)** dataset from the UCI Machine Learning Repository.
 
@@ -8,7 +8,7 @@ This project demonstrates the full pipeline, including data cleaning, explorator
 
 ---
 
-## 📊 Project Overview
+## Project Overview
 
 Hospital readmissions are costly and often preventable.  
 The goal of this project is to:
@@ -17,11 +17,11 @@ The goal of this project is to:
 - Build predictive models to identify high-risk patients
 - Present insights through an interactive Streamlit dashboard
 
-⚠️ **Disclaimer:** This project is for educational and analytical purposes only and is **not intended for clinical decision-making**.
+**Disclaimer:** This project is for educational and analytical purposes only and is **not intended for clinical decision-making**.
 
 ---
 
-## 🗂 Dataset
+## Dataset
 
 This project uses the **Diabetes 130-US hospitals for years 1999–2008** dataset.
 
@@ -31,7 +31,7 @@ This project uses the **Diabetes 130-US hospitals for years 1999–2008** datase
 
 ---
 
-## 🧠 Modeling Approach
+## Modeling Approach
 
 The project includes:
 - Data preprocessing and cleaning
@@ -43,7 +43,7 @@ The project includes:
 
 ---
 
-## 🚀 How to Run Locally
+## How to Run Locally
 
 1. **Install dependencies**
    ```bash
