@@ -91,7 +91,7 @@ After adjusting the classification threshold, recall increased to approximately 
 To ensure transparency and trust in model predictions, Explainable Artificial Intelligence (XAI) techniques were applied using SHAP.
 
 ### Feature Importance
-![Feature Importance](05_images/feature_importance.png)
+![Feature Importance](05_images/feature_importnace.png)
 
 ### SHAP Summary Plot
 ![SHAP Summary](05_images/shap_summary.png)
