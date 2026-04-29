@@ -8,7 +8,7 @@ This project presents a complete machine learning pipeline designed to predict h
 
 ## Business Problem and Motivation
 
-Hospital readmissions remain a major challenge in the United States healthcare system, particularly among patients with chronic conditions such as diabetes. These readmissions increase healthcare costs, strain hospital resources, and often indicate gaps in care coordination. As discussed in the project report, identifying patients at high risk of readmission allows healthcare providers to intervene earlier and improve patient outcomes. :contentReference[oaicite:0]{index=0}
+Hospital readmissions remain a major challenge in the United States healthcare system, particularly among patients with chronic conditions such as diabetes. These readmissions increase healthcare costs, strain hospital resources, and often indicate gaps in care coordination. As discussed in the project report, identifying patients at high risk of readmission allows healthcare providers to intervene earlier and improve patient outcomes.
 
 From a modeling perspective, this problem introduces an important tradeoff. Failing to identify a high-risk patient (false negative) can result in missed intervention opportunities, while incorrectly flagging a low-risk patient (false positive) primarily affects operational workload. For this reason, the modeling approach prioritizes recall over overall accuracy, aligning the model with real-world healthcare decision-making.
 
@@ -16,7 +16,7 @@ From a modeling perspective, this problem introduces an important tradeoff. Fail
 
 ## Project Overview
 
-This project applies machine learning techniques to predict whether a patient will be readmitted after discharge. The workflow follows a structured pipeline consisting of data preprocessing, exploratory data analysis, model training, evaluation, and deployment. As described in the report, the project builds on earlier work by improving model performance and interpretability while integrating a Streamlit dashboard for interactive exploration. :contentReference[oaicite:1]{index=1}
+This project applies machine learning techniques to predict whether a patient will be readmitted after discharge. The workflow follows a structured pipeline consisting of data preprocessing, exploratory data analysis, model training, evaluation, and deployment. As described in the report, the project builds on earlier work by improving model performance and interpretability while integrating a Streamlit dashboard for interactive exploration.
 
 Multiple machine learning models were evaluated, including Random Forest, XGBoost, Support Vector Machines, and LightGBM. The final model was selected based on its ability to achieve strong recall while maintaining reasonable precision on imbalanced healthcare data. Explainability techniques such as SHAP were incorporated to ensure that predictions remain transparent and clinically meaningful.
 
@@ -24,13 +24,13 @@ Multiple machine learning models were evaluated, including Random Forest, XGBoos
 
 ## Dataset
 
-The dataset used in this project is the Diabetes 130-US Hospitals dataset from the UCI Machine Learning Repository, containing over 100,000 hospital encounters from 130 hospitals between 1999 and 2008. :contentReference[oaicite:2]{index=2}  
+The dataset used in this project is the Diabetes 130-US Hospitals dataset from the UCI Machine Learning Repository, containing over 100,000 hospital encounters from 130 hospitals between 1999 and 2008.
 
 - Source: https://archive.ics.uci.edu/ml/datasets/diabetes+130-us+hospitals+for+years+1999-2008  
 - Type: Structured clinical and administrative data  
 - Size: ~100,000 patient encounters  
 
-The dataset includes patient demographics, laboratory results, medication usage, diagnoses, and healthcare utilization measures such as inpatient, outpatient, and emergency visits. The original target variable contained three classes (no readmission, <30 days, >30 days), which were combined into a binary outcome representing readmitted versus not readmitted to simplify the modeling task and improve class balance. :contentReference[oaicite:3]{index=3}  
+The dataset includes patient demographics, laboratory results, medication usage, diagnoses, and healthcare utilization measures such as inpatient, outpatient, and emergency visits. The original target variable contained three classes (no readmission, <30 days, >30 days), which were combined into a binary outcome representing readmitted versus not readmitted to simplify the modeling task and improve class balance.
 
 ---
 
@@ -82,7 +82,7 @@ Model evaluation showed that ensemble-based methods performed most consistently,
 ### Confusion Matrix (Final Model)
 ![Confusion Matrix](05_images/confusion_matrix.png)
 
-After adjusting the classification threshold, recall increased to approximately 0.74, while precision decreased to approximately 0.61. This tradeoff is acceptable in healthcare contexts, where identifying high-risk patients is more critical than minimizing false positives. :contentReference[oaicite:4]{index=4}  
+After adjusting the classification threshold, recall increased to approximately 0.74, while precision decreased to approximately 0.61. This tradeoff is acceptable in healthcare contexts, where identifying high-risk patients is more critical than minimizing false positives.
 
 ---
 
@@ -99,7 +99,7 @@ To ensure transparency and trust in model predictions, Explainable Artificial In
 ### Local SHAP Explanation
 ![Local SHAP](05_images/shap_local_example.png)
 
-SHAP analysis revealed that healthcare utilization features, particularly the number of inpatient and emergency visits, are the strongest predictors of readmission risk. :contentReference[oaicite:5]{index=5}  
+SHAP analysis revealed that healthcare utilization features, particularly the number of inpatient and emergency visits, are the strongest predictors of readmission risk.
 
 Local SHAP explanations further demonstrate how individual patient predictions are influenced by specific features, allowing users to understand why a patient is classified as high risk.
 
