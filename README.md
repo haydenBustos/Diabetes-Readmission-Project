@@ -130,3 +130,8 @@ Future improvements include exploring multiclass prediction, incorporating addit
 1. Install dependencies:
 ```bash
 pip install -r requirements.txt
+```
+2. Run Dashboard
+```bash
+streamlit run streamlit_app.py
+```
