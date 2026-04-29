@@ -47,10 +47,10 @@ Additional preprocessing steps included feature engineering to capture meaningfu
 Exploratory data analysis was conducted to understand feature distributions, identify data quality issues, and analyze relationships between predictors and readmission outcomes.
 
 ### Class Distribution Before Remapping
-![Before](images/class_distribution_before.png)
+![Before](05_images/class_distribution_before.png)
 
 ### Class Distribution After Remapping
-![After](images/class_distribution_after.png)
+![After](05_images/class_distribution_after.png)
 
 The analysis revealed class imbalance in the original dataset and confirmed that healthcare utilization variables, such as prior inpatient and emergency visits, are strongly associated with readmission risk.
 
@@ -77,10 +77,10 @@ Model performance was evaluated using precision, recall, and F1-score, with emph
 Model evaluation showed that ensemble-based methods performed most consistently, with LightGBM producing the best overall results. The model achieved a recall of approximately 0.65 for the readmitted class, which was further improved through threshold tuning.
 
 ### Model Comparison
-![Model Comparison](images/model_comparison.png)
+![Model Comparison](05_images/model_comparison.png)
 
 ### Confusion Matrix (Final Model)
-![Confusion Matrix](images/confusion_matrix.png)
+![Confusion Matrix](05_images/confusion_matrix.png)
 
 After adjusting the classification threshold, recall increased to approximately 0.74, while precision decreased to approximately 0.61. This tradeoff is acceptable in healthcare contexts, where identifying high-risk patients is more critical than minimizing false positives. :contentReference[oaicite:4]{index=4}  
 
@@ -91,13 +91,13 @@ After adjusting the classification threshold, recall increased to approximately 
 To ensure transparency and trust in model predictions, Explainable Artificial Intelligence (XAI) techniques were applied using SHAP.
 
 ### Feature Importance
-![Feature Importance](images/feature_importance.png)
+![Feature Importance](05_images/feature_importance.png)
 
 ### SHAP Summary Plot
-![SHAP Summary](images/shap_summary.png)
+![SHAP Summary](05_images/shap_summary.png)
 
 ### Local SHAP Explanation
-![Local SHAP](images/shap_local_example.png)
+![Local SHAP](05_images/shap_local_example.png)
 
 SHAP analysis revealed that healthcare utilization features, particularly the number of inpatient and emergency visits, are the strongest predictors of readmission risk. :contentReference[oaicite:5]{index=5}  
 
