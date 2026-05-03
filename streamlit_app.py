@@ -17,8 +17,8 @@ st.set_page_config(
 # Paths
 
 BASE_DIR = Path(__file__).parent
-DATA_DIR = BASE_DIR / "data"
-ARTIFACTS_DIR = BASE_DIR / "artifacts"
+DATA_DIR = BASE_DIR / "01_data"
+ARTIFACTS_DIR = BASE_DIR / "06_artifacts"
 
 # -----------------------------------------------------------------------------
 # Data loading
